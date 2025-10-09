@@ -16,7 +16,7 @@ def create_output_directory(output_name):
     Returns:
         Caminho completo do diretório criado
     """
-    output_path = os.path.join('out', '_manual', output_name)
+    output_path = os.path.join('out', 'manual', output_name)
     os.makedirs(output_path, exist_ok=True)
     return output_path
 
@@ -29,6 +29,9 @@ def extract_routes(traceroute_data, G):
         previous_node = None
 
         for hop in entry['val']:
+            if 'ip' not in hop:
+                continue
+            
             current_hop = hop['ip']
 
             if not current_hop:
@@ -302,10 +305,14 @@ def print_summary(output_path, files_created):
 
 def main():
     # Configurações
-    filepath = 'dataset/Train/traceroute/rj/measure-traceroute_ref-rj_pop-pi.json'
-    output_name = 'rj-pi'  # ← ALTERE AQUI O NOME DA PASTA DE SAÍDA
-    origin = "200.137.160.129"
-    destination = "200.159.254.238"
+    origin_name = 'rj'
+    origin = "200.159.254.238"
+
+    destination_name = 'pi'
+    destination = "200.137.160.129"
+
+    filepath = f'dataset/Train/traceroute/{origin_name}/measure-traceroute_ref-{origin_name}_pop-{destination_name}.json'
+    output_name = f'{origin_name}-{destination_name}'  # ← ALTERE AQUI O NOME DA PASTA DE SAÍDA
     
     # Cria diretório de saída
     output_path = create_output_directory(output_name)
