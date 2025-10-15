@@ -1,0 +1,74 @@
+[
+    {
+        "ts": 1718359167,
+        "val": [
+            {
+                "ttl": 1,
+                "query": 1,
+                "success": 1,
+                "ip": "200.137.76.129",
+                "hostname": "gateway",
+                "as": {
+                    "owner": "Rede Nacional de Ensino e Pesquisa, BR",
+                    "number": 1916
+                },
+                "rtt": 2.1
+            },
+            {
+                "ttl": 2,
+                "query": 1,
+                "success": 1,
+                "ip": "200.137.84.124",
+                "as": {
+                    "owner": "Rede Nacional de Ensino e Pesquisa, BR",
+                    "number": 1916
+                },
+                "rtt": 1.5
+            },
+            {
+                "ttl": 3,
+                "query": 1,
+                "success": 1,
+                "ip": "170.79.214.90",
+                "rtt": 1.6
+            },
+            {
+                "ttl": 4,
+                "query": 1,
+                "success": 1,
+                "ip": "170.79.213.197",
+                "hostname": "crj1-ces1-100g-telebras.bkb.rnp.br",
+                "rtt": 8.3
+            },
+            {
+                "ttl": 5,
+                "query": 1,
+                "success": 1,
+                "ip": "200.143.253.22",
+                "hostname": "lanrj-rj.bkb.rnp.br",
+                "as": {
+                    "owner": "Rede Nacional de Ensino e Pesquisa, BR",
+                    "number": 1916
+                },
+                "rtt": 8.5
+            },
+            {
+                "ttl": 6,
+                "query": 1,
+                "success": 1
+            },
+            {
+                "ttl": 7,
+                "query": 1,
+                "success": 1,
+                "ip": "200.159.254.238",
+                "hostname": "monipe-rj-atraso.rnp.br",
+                "as": {
+                    "owner": "Rede Nacional de Ensino e Pesquisa, BR",
+                    "number": 1916
+                },
+                "rtt": 8.5
+            }
+        ]
+    }
+]

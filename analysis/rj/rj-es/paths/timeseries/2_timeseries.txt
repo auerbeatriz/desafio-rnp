@@ -1,0 +1,2 @@
+timestamp,latency_ms
+1718359167,8.5

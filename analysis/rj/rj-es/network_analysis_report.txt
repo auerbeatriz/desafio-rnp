@@ -1,0 +1,71 @@
+================================================================================
+RELATÓRIO DE ANÁLISE DE REDE
+================================================================================
+Data/Hora: 2025-10-14 20:56:02
+Origem: rj (200.159.254.238)
+Destino: es (200.137.76.129)
+================================================================================
+
+ESTATÍSTICAS DA TOPOLOGIA
+--------------------------------------------------------------------------------
+Número de nós (IPs únicos): 9
+Número de arestas (links): 10
+Grau médio: 2.22
+Densidade: 0.2778
+Grafo conectado: Sim
+Diâmetro da rede: 5
+Raio da rede: 3
+
+================================================================================
+ANÁLISE DE CAMINHOS
+================================================================================
+
+Caminhos OBSERVADOS (medidos): 3
+Caminhos POSSÍVEIS (no grafo): 4
+
+DIFERENÇA ENTRE CAMINHOS OBSERVADOS E POSSÍVEIS:
+--------------------------------------------------------------------------------
+• Caminhos observados: sequências EXATAS de IPs medidas pelo traceroute
+• Caminhos possíveis: todas as rotas simples entre origem e destino
+  considerando a topologia construída (sem repetir nós)
+• Os números diferem porque:
+  - Traceroute mede caminhos reais em momentos específicos
+  - O grafo representa todas as conexões vistas ao longo do tempo
+  - Alguns caminhos possíveis no grafo podem nunca ter sido medidos
+  - Roteamento dinâmico pode usar sempre os mesmos caminhos
+
+CAMINHO MAIS CURTO (GRAFO):
+--------------------------------------------------------------------------------
+Número de saltos: 5
+Caminho: 200.159.254.238 → 200.143.253.22 → 170.79.213.197 → 170.79.214.90 → 200.137.84.124 → 200.137.76.129
+
+================================================================================
+CAMINHOS OBSERVADOS DETALHADOS
+================================================================================
+
+Total de medições: 1326
+
+Caminho 0 (6 saltos, 1170 medições):
+  200.137.76.129 → 200.137.84.124 → 170.79.214.90 → 170.79.213.197 → 200.143.253.22 → 200.143.240.6 → 200.159.254.238
+  Latência: mín=6.90ms, máx=142.70ms, média=7.68ms
+
+Caminho 1 (7 saltos, 155 medições):
+  200.137.76.129 → 200.137.84.124 → 170.79.214.90 → 170.79.213.151 → 200.143.252.234 → 200.143.253.22 → 200.143.240.6 → 200.159.254.238
+  Latência: mín=8.50ms, máx=75.30ms, média=10.34ms
+
+Caminho 2 (5 saltos, 1 medições):
+  200.137.76.129 → 200.137.84.124 → 170.79.214.90 → 170.79.213.197 → 200.143.253.22 → 200.159.254.238
+  Latência: mín=8.50ms, máx=8.50ms, média=8.50ms
+
+================================================================================
+LISTA DE NÓS (IPs ÚNICOS)
+================================================================================
+  1. 170.79.213.151       (grau: 2)
+  2. 170.79.213.197       (grau: 2)
+  3. 170.79.214.90        (grau: 3)
+  4. 200.137.76.129       (grau: 1)
+  5. 200.137.84.124       (grau: 2)
+  6. 200.143.240.6        (grau: 2)
+  7. 200.143.252.234      (grau: 2)
+  8. 200.143.253.22       (grau: 4)
+  9. 200.159.254.238      (grau: 2)
