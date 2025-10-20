@@ -77,7 +77,25 @@ Para isso, utilizamos o conjunto de dados disponibilizado pela Rede Nacional de 
 ]
 ```
 
-O dataset também fornece histogramas de RTT em um determinado timestamp.
+O dataset também fornece histogramas de RTT em um determinado timestamp, como no formato abaixo:
+
+```
+[
+    {
+        "ts": 1717718499,
+        "val": {
+            "7.00": 3,
+            "6.99": 2,
+            "7.01": 1,
+            "7.05": 1,
+            "6.97": 1,
+            "6.95": 1,
+            "7.49": 1
+        }
+    },
+    ...
+]
+```
 
 Iniciamos os estudos com esse dataset com os dados fornecidos entre Rio de Janeiro e Espírito Santo, por apresentar menos nós e menos caminhos caminhos redundantes.
 
@@ -93,8 +111,35 @@ Diante disso, para o caminho medido no timestamp, adotamos como latência do cam
 
 Após extração e organização dos dados, construímos uma tabela contendo, para cada timestamp, a latência medida para cada caminho identificado. Os valores ausentes para caminhos que não foram observados naquele timestamp foram registrados como NaN. Posteriormente, utilizamos o método interpolate do pacote pandas no python. Fizemos um processo de interpolação linear em ambas as direções. O resultado da interpolação foi bastante coerente com os dados já obtidos. 
 
-No entanto, é preciso ressaltar que as coletas para os caminhos dessa subtopologia estão desbalanceadas: o caminho 1 possui 1170 medições; o caminho 2, 155 medições; e o caminho 3, apenas uma medição.
+No entanto, é preciso ressaltar que as coletas para os caminhos dessa subtopologia estão desbalanceadas: o caminho 1 possui 1170 medições; o caminho 2, 155 medições; e o caminho 3, apenas uma medição. A Figura 3 destaca os caminhos medidos. Os arquivos de antes e depois da interpolação estão anexo. Todo o material usado está disponível no repositório do Github: [auerbeatriz/desafio-rnp](https://github.com/auerbeatriz/desafio-rnp). 
 
-Os arquivos csv de antes e depois da interpolação estão anexo. Todo o material usado está disponível no repositório do Github: [auerbeatriz/desafio-rnp](https://github.com/auerbeatriz/desafio-rnp).
+![](caminhos_rj_es.png)
+
+Posteriormente, criamos um arquivo com os rótulos usados para o treinamento dos modelos. Esse arquivo foi gerado escolhendo o pathId do caminho com a menor latência em um determinado timestamp. O caminho 1 teve a menor latência em 1277 dos casos, o caminho 2 em 2 casos, e o caminho 3 em 47 casos. O dataset dessa topologia está bastante desbalanceado, e apesar de possuir algumas leituras onde a menor latência não seja a do caminho 1, esse caso pode ter ocorrido por meio da introdução de outliers na interpolação (alguns valores introduzidos acima de 140, por exemplo). Apesar disso, é interessante avaliar que a menor latência, na maior parte das vezes, não estava associada ao caminho mais curto (caminho 3).
 
 # Experimentos e resultados
+
+O experimento inicial consistiu em excutar o mesmo notebook do Google Collab compartilhado pela equipe do Hecate (antiga parceria do grupo de pesquisa, responsável pelo estudo de otimizadores de rotas de rede). Esse collab avalia o desempenho de sete algoritmos de aprendizado de máquina para a escolha do caminho: LogisticRegression, KNeighbors, SVC, DecisionTree, ExtraTrees, RandomForest, GaussianNB.
+
+Como entrada, é carregado o arquivo com as latências dos caminhos em cada timestamp. O timestamp não é utilizado como característica para o treinamento e teste dos modelos. O arquivo de rótulos também é usado para o treinamento e validação do modelo. Foi mantida uma divisão dos dados entre 80% treino e 20% teste. O resultado dos modelos foi o seguinte:
+
+```
+###########     Full dataset      #################
+
+                Model Acc.avg Acc.std roc_auc_score
+0  LogisticRegression   0.996   0.004         0.998
+1          KNeighbors   0.995   0.003         0.916
+2                 svc   0.993   0.006         0.990
+3        DecisionTree   0.995   0.007         0.981
+4          ExtraTrees   0.991   0.009         0.999
+5        RandomForest   0.997   0.003         0.999
+6          GaussianNB   0.982   0.005         0.830
+```
+
+Quase todos os modelos previram corretamente, sendo os que tiveram maior acurácia RandomForest, ExtraTrees e LogisticRegression - muito similar aos resultados publicados no artigo conjunto. No entanto, é preciso considerar que a escolha nesse cenário é bastante determinístico.
+
+# Perguntas
+
+* Vale a pena inserir característica de tempo no caminho? Por exemplo, além de informar a latência no caminho, também informar o horário, ou outra métrica.
+* Como utilizar o histograma para extrair características da rede/caminhos?
+* É possível deixar a interpolação mais suave, evitando valores muito discrepantes? Ou é melhor otimizar a função para remover os outliers (no entanto, para esse dataset específico, a exclusão desses valores levou a apenas um rótulo de saída - Caminho 1)?
