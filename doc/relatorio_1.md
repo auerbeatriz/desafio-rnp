@@ -1,6 +1,5 @@
 # O Problema
 
-
 O tráfego na internet é diverso, e cada tipo de fluxo possui demandas e requisitos diferentes. O estudo em redes cientes de caminho busca encontrar estratégias para que as aplicações sejam capazes de escolher ou influenciar a escolha do caminho para seus fluxos de dados. Para isso, é preciso que as camadas de rede e transporte forneçam informações explícitas sobre os caminhos disponíveis para os endpoints e suas aplicações.
 
 Uma forma de alcançar esse objetivo é coletando e disponibilizando dados de telemetria da rede. Por representarem o estado da rede de forma realista, séries históricas de métricas como latência e largura de banda podem ser utilizadas para tomadas de decisão de engenharia de tráfego.
@@ -28,9 +27,12 @@ A tarefa de seleção de rota é formulada como um problema de comparação entr
 --> pathId
 ```
 
-Para isso, utilizamos o conjunto de dados disponibilizado pela Rede Nacional de Ensino e Pesquisa (RNP), coletado em 2024 em um subconjunto de nós da rede Ipê. O dataset possui em uma série histórica de medições de traceroute, onde cada amostra registra os valores de RTT (Round Trip Time) para cada salto do caminho entre dois pontos da rede em um dado instante de tempo. A seguir, um exemplo de leitura extraída do dataset, correspondente a um traceroute entre nós localizados no Rio de Janeiro e Espírito Santo, em um determinado timestamp:
+## Descrição do Dataset
+
+Como primeiro passo, investigamos o uso do dataset disponibilizado pela Rede Nacional de Ensino e Pesquisa (RNP), coletado em 2024 em um subconjunto de nós da rede Ipê. O dataset possui diversas séries históricas de medições de traceroute, onde cada amostra registra os valores de RTT (Round Trip Time) em cada salto do caminho entre dois pontos da rede em um dado instante de tempo. Além disso, também fornece histogramas de RTT em um determinado timestamp aproximado. A seguir, um exemplo de leitura extraída do dataset, correspondente a um traceroute entre nós localizados no Rio de Janeiro e Espírito Santo, em um determinado timestamp, e o primeiro histograma para o mesmo par:
 
 ```
+# Leitura de traceroute RJ-ES
 [
     {
         "ts": 1718359167,
@@ -77,9 +79,8 @@ Para isso, utilizamos o conjunto de dados disponibilizado pela Rede Nacional de 
 ]
 ```
 
-O dataset também fornece histogramas de RTT em um determinado timestamp, como no formato abaixo:
-
 ```
+# Histograma RTT entre RJ-ES
 [
     {
         "ts": 1717718499,
@@ -97,7 +98,35 @@ O dataset também fornece histogramas de RTT em um determinado timestamp, como n
 ]
 ```
 
-Iniciamos os estudos com esse dataset com os dados fornecidos entre Rio de Janeiro e Espírito Santo, por apresentar menos nós e menos caminhos caminhos redundantes.
+Por apresentar uma subtopologia com menos nós e caminhos medidos, iniciamos pela avaliação dos dados fornecidos entre Rio de Janeiro e Espírito Santo.
+
+## Limitações
+
+1. **Dados coletados em uma rede que não é ciente de caminhos**
+
+    A rede utilizada para a coleta dos dados não possui mecanismos explícitos de seleção ou divulgação de caminhos, ou seja, não é uma rede ciente de caminhos. Embora seja possível reconstruir os trajetos a partir das medições de traceroute, não há garantia de que os pacotes utilizados para medir o RTT percorreram exatamente os mesmos enlaces identificados pelo traceroute no momento da medição. Em redes IP tradicionais, o roteamento é dinâmico e pode variar devido a políticas internas, balanceamento de carga ou falhas temporárias, sem necessariamente haver registro dessas mudanças.
+
+    Além disso, o dataset não fornece informações sobre os critérios de seleção de rotas utilizados pela rede subjacente. Dessa forma, não é possível afirmar com precisão se a sequência de saltos observada representa um caminho estável ou apenas uma rota momentânea. Essa incerteza dificulta a comparação com algoritmos de seleção de rotas baseados em IA.
+
+2. **Dados dos caminhos coletados em timestamps diferentes**
+
+    Como a tarefa proposta envolve comparar múltiplos caminhos entre dois pontos da rede, é essencial que as medições sejam analisadas em uma mesma base temporal, ou seja, em instantes de tempo iguais ou suficientemente próximos. Isso permite interpretar corretamente o estado da rede naquele momento e avaliar o desempenho relativo entre os caminhos. No entanto, no dataset analisado, as medições de traceroute de diferentes rotas entre a mesma origem e destino foram coletadas em timestamps distintos, muitas vezes com grandes intervalos de tempo entre elas.
+
+    Além disso, a troca de rota é incomum, e acontece após longos períodos de tempo - até dias. Como consequência, comparar os caminhos no tempo torna-se um desafio, pois as séries históricas não estão temporalmente alinhadas. Essa defasagem temporal exige etapas adicionais de sincronização e interpolação, que podem introduzir distorções nas comparações e comprometer a fidelidade da análise.
+
+3. **Dados coletados com frequência irregular**
+
+    A coleta das medições ao longo do tempo não segue um intervalo fixo entre amostras, resultando em séries temporais com espaçamentos irregulares. Em diversos casos, observam-se medições separadas por apenas 5 ou 7 minutos, enquanto outros intervalos chegam a 49 minutos, horas ou até dias sem registros. Essa irregularidade é prejudicial porque impede a análise temporal consistente da métrica de latência, dificultando tanto a comparação entre caminhos quanto a identificação de padrões de comportamento da rede. Além disso, muitos algoritmos de aprendizado de máquina e métodos estatísticos para séries temporais pressupõem dados uniformemente espaçados no tempo. Assim, a irregularidade na frequência de coleta exige etapas adicionais de pré-processamento, como reamostragem e interpolação, que podem introduzir vieses nos dados e afetar adversamente a qualidade do modelo preditivo.
+
+4. **Desbalanceamento de amostras dos caminhos**
+
+    Apesar de fornecer uma grande quantidade de medidas ao longo do tempo, 1326 para o cenário de medição entre Rio de Janeiro e São Paulo, existe uma grande discrepância entre a quantidade medida de cada caminho. Aproximadamente 88% das amostras de traceroute representam apenas um caminho. Esse desbalanceamento sugere que, na prática, a rede adota um caminho predominante e raramente alterna para rotas alternativas.
+
+    Esse cenário é problemático por diversas razões. Em primeiro lugar, a escassez de dados para os caminhos menos utilizados dificulta a caracterização do comportamento temporal desses trajetos, reduzindo a confiabilidade de qualquer tentativa de modelagem baseada neles. Em segundo lugar, do ponto de vista de aprendizado de máquina, o dataset torna-se severamente desbalanceado, favorecendo previsões que reproduzem o comportamento do caminho dominante. Isso pode levar modelos supervisionados a aprenderem um viés trivial — como prever sempre o caminho mais frequente — resultando em métricas artificialmente altas, mas sem capacidade real de generalização.
+
+    Além disso, esse desbalanceamento é agravado pelo fato de que o caminho dominante apresenta também a menor latência em 97% dos casos (após o processo de interpolação). Assim, a tarefa de seleção de rotas torna-se degenerada: a ausência de diversidade nos exemplos limita a capacidade do modelo de distinguir situações em que uma rota alternativa poderia ser mais adequada. Em última instância, o desbalanceamento compromete tanto a variabilidade quanto o valor informativo do dataset, reduzindo sua utilidade para treinar e avaliar algoritmos que dependem de múltiplas escolhas possíveis de caminhos.
+
+## Premissas e aproximações
 
 ## Pré-processamento
 
@@ -127,19 +156,21 @@ Como entrada, é carregado o arquivo com as latências dos caminhos em cada time
 ###########     Full dataset      #################
 
                 Model Acc.avg Acc.std roc_auc_score
-0  LogisticRegression   0.996   0.004         0.998
-1          KNeighbors   0.995   0.003         0.916
-2                 svc   0.993   0.006         0.990
-3        DecisionTree   0.995   0.007         0.981
-4          ExtraTrees   0.991   0.009         0.999
-5        RandomForest   0.997   0.003         0.999
-6          GaussianNB   0.982   0.005         0.830
+0  LogisticRegression   0.996   0.003         0.999
+1          KNeighbors   0.998   0.002         0.916
+2                 svc   0.995   0.003         0.993
+3        DecisionTree   0.998   0.003         0.989
+4          ExtraTrees   0.997   0.003         0.998
+5        RandomForest   0.998   0.002         0.999
+6          GaussianNB   0.983   0.017         0.832
 ```
 
 Quase todos os modelos previram corretamente, sendo os que tiveram maior acurácia RandomForest, ExtraTrees e LogisticRegression - muito similar aos resultados publicados no artigo conjunto. No entanto, é preciso considerar que a escolha nesse cenário é bastante determinístico.
 
+
+# Conclusão
+
 # Perguntas
 
-* Vale a pena inserir característica de tempo no caminho? Por exemplo, além de informar a latência no caminho, também informar o horário, ou outra métrica.
-* Como utilizar o histograma para extrair características da rede/caminhos?
-* É possível deixar a interpolação mais suave, evitando valores muito discrepantes? Ou é melhor otimizar a função para remover os outliers (no entanto, para esse dataset específico, a exclusão desses valores levou a apenas um rótulo de saída - Caminho 1)?
+* Como tratar valores muito discrepantes?
+* Conhecemos algum outro dataset disponível que forneça dados coletados em um cenário mais próximo de uma rede ciente de caminhos?

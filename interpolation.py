@@ -1,60 +1,67 @@
 import pandas as pd
-import numpy as np
 from io import StringIO
-
-def perform_interpolation(filepath):
-    df = pd.read_csv(filepath)
-    print(df)
-
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
-
-    # Define a coluna 'timestamp' como o índice do DataFrame
-    # O 'pandas' agora entenderá que a distância entre as linhas é temporal
-    df_indexed = df.set_index('timestamp')
-
-    print("--- DataFrame Indexado (Pronto para Interpolação) ---")
-    print(df_indexed)
-
-    # Aplica a interpolação linear, tratando cada coluna (caminho) separadamente
-    # O 'limit_direction='both'' garante que a interpolação ocorra para frente e para trás
-    df_interpolated = df_indexed.interpolate(method='linear', limit_direction='both')
-
-    print("\n--- DataFrame com Interpolação Linear Completa ---")
-    print(df_interpolated)
-
-    return df_interpolated
-
-    # Exemplo de Outro Método (LOCF - Last Observation Carried Forward) --> Mesmo resultado que o anterior, para rj-es
-    # df_interpolated_locf = df_indexed.fillna(method='ffill').fillna(method='bfill')
-    # print("\n--- DataFrame com Interpolação LOCF ---")
-    # print(df_interpolated_locf)
+from os import listdir
+from os.path import isfile, join
 
 
-def save_interpolation(filepath, df_interpolated):
-    # 1. Reseta o índice para que a coluna 'timestamp' volte a ser uma coluna normal
-    df_final = df_interpolated.reset_index()
+def save_interpolation(df_interpolated, out_dir):
+    df_final = df_interpolated.reset_index(drop = True)
 
-    # 2. Converte a coluna datetime ('timestamp') de volta para Unix Timestamp (em segundos)
-    # O .astype(int) realiza a conversão para nanosegundos (padrão do pandas)
-    # Dividimos por 10^9 para converter de nanosegundos para segundos.
-    df_final['timestamp'] = (df_final['timestamp'].astype(np.int64) // 10**9)
-
-    # Opcional: converte para o tipo de dado inteiro padrão (int32 ou int64)
-    df_final['timestamp'] = df_final['timestamp'].astype(pd.Int64Dtype())
-
-    print("\n--- DataFrame Final (Timestamp em segundos) ---")
-    print(df_final)
-
+    filepath = join(out_dir, 'latency_matrix_interpolated.csv')
     df_final.to_csv(filepath, index=False)
 
-    print(f"\nSucesso! O arquivo '{filepath}' foi salvo.")
+    print(f"Sucesso! O arquivo '{filepath}' foi salvo.")
+
+def load_interpolated_data(root_dir):
+    files = [f for f in listdir(root_dir) if isfile(join(root_dir, f))]
+
+    dfs = []
+    
+    for f in files:
+        filepath = join(root_dir, f)
+
+        df = pd.read_csv(filepath)
+
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+        df = df.set_index('timestamp')
+
+        df_minute = df.resample('10min').nearest()
+        df_interpolated = df_minute.interpolate(method='linear', limit_direction='both')
+
+        dfs.append(df_interpolated)
+    
+    return dfs
+
+def rename_columns(dfs):
+    renamed_dfs = []
+
+    for i, df in enumerate(dfs):
+        df = df.rename(columns={df.columns[0]: f"latency_{i+1}"})
+        renamed_dfs.append(df)
+    
+    return renamed_dfs
+
+def join_data(dfs):
+    merged_df = dfs[0]
+
+    for i in range(1, len(dfs)):
+        merged_df = pd.merge_asof(merged_df, dfs[i], on='timestamp', direction='nearest')
+
+    return merged_df
 
 def main():
-    filepath_in = 'analysis/rj/rj-es/latency_matrix.csv'
-    filepath_out = 'analysis/rj/rj-es/latency_matrix_interpolated.csv'
+    origin = 'rj'
+    destination = 'es'
 
-    df_interpolated = perform_interpolation(filepath_in)
-    save_interpolation(filepath_out, df_interpolated)
+    root_dir = f'analysis/{origin}/{origin}-{destination}/paths/timeseries'
+    out_dir = f'analysis/{origin}/{origin}-{destination}'
+
+    dfs = load_interpolated_data(root_dir)
+    dfs = rename_columns(dfs)
+
+    merged_df = join_data(dfs)
+
+    save_interpolation(merged_df, out_dir)
 
 
 

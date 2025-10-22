@@ -17,7 +17,7 @@ def create_output_directories(origin, destination):
     Returns:
         Tupla com (diretório base, diretório paths)
     """
-    base_path = os.path.join('new/analysis', origin, f'{origin}-{destination}')
+    base_path = os.path.join('analysis', origin, f'{origin}-{destination}')
     paths_path = os.path.join(base_path, 'paths')
     os.makedirs(paths_path, exist_ok=True)
     return base_path, paths_path
@@ -57,25 +57,29 @@ def extract_rtt_from_hops(hops):
     return None
 
 
-def process_traceroute_data(traceroute_data):
+def process_traceroute_data(traceroute_data, destination_ip):
     """
     Processa os dados do traceroute e agrupa medições por caminho.
     Considera a ORDEM dos IPs no caminho.
+    FILTRA apenas medições que terminam no IP de destino especificado.
     
     Args:
         traceroute_data: Lista de medições de traceroute
+        destination_ip: IP de destino esperado (último salto)
     
     Returns:
         Tupla com:
         - measurements_by_path: {path_id: [lista de medições completas]}
         - path_to_nodes: {path_id: [lista ordenada de IPs]}
         - G: Grafo NetworkX não direcionado
+        - filtered_count: Número de medições filtradas
     """
     G = nx.Graph()
     path_to_id = {}
     path_to_nodes = {}
     path_counter = 0
     measurements_by_path = defaultdict(list)
+    filtered_count = 0
     
     for entry in traceroute_data:
         hops = entry.get('val', [])
@@ -85,6 +89,12 @@ def process_traceroute_data(traceroute_data):
         
         # Descarta medições sem caminho válido
         if not path:
+            filtered_count += 1
+            continue
+        
+        # FILTRO: Descarta medições que NÃO terminam no IP de destino
+        if path[-1] != destination_ip:
+            filtered_count += 1
             continue
         
         # Converte para tupla para usar como chave (mantém ordem)
@@ -110,7 +120,7 @@ def process_traceroute_data(traceroute_data):
         # Adiciona a medição completa ao caminho
         measurements_by_path[path_id].append(entry)
     
-    return measurements_by_path, path_to_nodes, G
+    return measurements_by_path, path_to_nodes, G, filtered_count
 
 
 def export_path_measurements_json(paths_path, path_id, measurements):
@@ -180,7 +190,8 @@ def find_all_simple_paths(G, origin, destination):
 
 
 def export_consolidated_report(base_path, measurements_by_path, path_to_nodes, G, 
-                               origin_name, destination_name, origin_ip, destination_ip):
+                               origin_name, destination_name, origin_ip, destination_ip,
+                               filtered_count, total_measurements):
     """
     Exporta relatório consolidado com todas as informações.
     
@@ -193,6 +204,8 @@ def export_consolidated_report(base_path, measurements_by_path, path_to_nodes, G
         destination_name: Nome do destino
         origin_ip: IP de origem
         destination_ip: IP de destino
+        filtered_count: Número de medições filtradas
+        total_measurements: Total de medições no arquivo original
     
     Returns:
         Caminho do arquivo criado
@@ -234,6 +247,15 @@ def export_consolidated_report(base_path, measurements_by_path, path_to_nodes, G
         f.write(f"Origem: {origin_name} ({origin_ip})\n")
         f.write(f"Destino: {destination_name} ({destination_ip})\n")
         f.write("="*80 + "\n\n")
+        
+        # ESTATÍSTICAS DE FILTRAGEM
+        f.write("ESTATÍSTICAS DE FILTRAGEM\n")
+        f.write("-"*80 + "\n")
+        f.write(f"Total de medições no arquivo: {total_measurements}\n")
+        f.write(f"Medições filtradas (não terminam em {destination_ip}): {filtered_count}\n")
+        valid_measurements = sum(len(m) for m in measurements_by_path.values())
+        f.write(f"Medições válidas (terminam em {destination_ip}): {valid_measurements}\n")
+        f.write(f"Taxa de aproveitamento: {(valid_measurements/total_measurements*100):.2f}%\n\n")
         
         # ESTATÍSTICAS DO GRAFO
         f.write("ESTATÍSTICAS DA TOPOLOGIA\n")
@@ -281,8 +303,7 @@ def export_consolidated_report(base_path, measurements_by_path, path_to_nodes, G
         f.write("CAMINHOS OBSERVADOS DETALHADOS\n")
         f.write("="*80 + "\n\n")
         
-        total_measurements = sum(len(m) for m in measurements_by_path.values())
-        f.write(f"Total de medições: {total_measurements}\n\n")
+        f.write(f"Total de medições válidas: {valid_measurements}\n\n")
         
         for path_id in sorted(path_to_nodes.keys()):
             nodes = path_to_nodes[path_id]
@@ -396,7 +417,7 @@ def visualize_graph(G, base_path, origin_ip, destination_ip, path_to_nodes):
     return image_path
 
 
-def print_summary(base_path, files_created, measurements_by_path):
+def print_summary(base_path, files_created, measurements_by_path, filtered_count, total_measurements):
     """
     Imprime resumo dos arquivos criados.
     """
@@ -405,10 +426,14 @@ def print_summary(base_path, files_created, measurements_by_path):
     print(f"{'='*80}")
     print(f"Diretório: {base_path}\n")
     
-    total_measurements = sum(len(m) for m in measurements_by_path.values())
+    valid_measurements = sum(len(m) for m in measurements_by_path.values())
     
-    print(f"Caminhos únicos identificados: {len(measurements_by_path)}")
-    print(f"Total de medições processadas: {total_measurements}\n")
+    print(f"Total de medições no arquivo: {total_measurements}")
+    print(f"Medições filtradas (destino incorreto): {filtered_count}")
+    print(f"Medições válidas processadas: {valid_measurements}")
+    print(f"Taxa de aproveitamento: {(valid_measurements/total_measurements*100):.2f}%\n")
+    
+    print(f"Caminhos únicos identificados: {len(measurements_by_path)}\n")
     
     print("Arquivos criados:")
     for file_type, filepath in files_created.items():
@@ -427,8 +452,8 @@ def main():
     origin_name = 'rj'
     origin_ip = "200.159.254.238"
     
-    destination_name = 'es'
-    destination_ip = "200.137.76.129"
+    destination_name = 'pi'
+    destination_ip = "200.137.160.129"
     
     filepath = f'dataset/Train/traceroute/{origin_name}/measure-traceroute_ref-{origin_name}_pop-{destination_name}.json'
     
@@ -441,12 +466,20 @@ def main():
     with open(filepath, 'r', encoding='utf-8') as f:
         traceroute_data = json.load(f)
     
-    print(f"✓ Total de medições carregadas: {len(traceroute_data)}")
+    total_measurements = len(traceroute_data)
+    print(f"✓ Total de medições carregadas: {total_measurements}")
     
     # Processa dados
-    print("\n📊 Processando dados de traceroute...")
-    measurements_by_path, path_to_nodes, G = process_traceroute_data(traceroute_data)
+    print(f"\n📊 Processando dados de traceroute...")
+    print(f"🎯 Filtrando apenas caminhos que terminam em: {origin_ip}")
+    measurements_by_path, path_to_nodes, G, filtered_count = process_traceroute_data(
+        traceroute_data, origin_ip
+    )
     
+    valid_measurements = sum(len(m) for m in measurements_by_path.values())
+    
+    print(f"✓ Medições válidas: {valid_measurements}/{total_measurements} ({(valid_measurements/total_measurements*100):.2f}%)")
+    print(f"✓ Medições filtradas: {filtered_count}")
     print(f"✓ Caminhos únicos identificados: {len(measurements_by_path)}")
     print(f"✓ Nós no grafo: {len(G.nodes())}")
     print(f"✓ Arestas no grafo: {len(G.edges())}")
@@ -474,9 +507,11 @@ def main():
     files_created['Séries temporais (TXT)'] = path_files_ts
     
     # 2. Exporta relatório consolidado
-    report_file = export_consolidated_report(base_path, measurements_by_path, 
-                                            path_to_nodes, G, origin_name, 
-                                            destination_name, origin_ip, destination_ip)
+    report_file = export_consolidated_report(
+        base_path, measurements_by_path, path_to_nodes, G, 
+        origin_name, destination_name, origin_ip, destination_ip,
+        filtered_count, total_measurements
+    )
     files_created['Relatório consolidado'] = report_file
     
     # 3. Salva grafo GML
@@ -489,7 +524,7 @@ def main():
     files_created['Visualização'] = image_path
     
     # Resumo final
-    print_summary(base_path, files_created, measurements_by_path)
+    print_summary(base_path, files_created, measurements_by_path, filtered_count, total_measurements)
 
 
 if __name__ == "__main__":
