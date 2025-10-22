@@ -98,7 +98,9 @@ Como primeiro passo, investigamos o uso do dataset disponibilizado pela Rede Nac
 ]
 ```
 
-Por apresentar uma subtopologia com menos nós e caminhos medidos, iniciamos pela avaliação dos dados fornecidos entre Rio de Janeiro e Espírito Santo.
+Por apresentar uma subtopologia com menos nós e caminhos medidos, iniciamos pela avaliação dos dados fornecidos entre Rio de Janeiro e Espírito Santo. A figura 2 mostra a topologia e os caminhos medidos.
+
+![](caminhos_rj_es.png)
 
 ## Limitações
 
@@ -126,31 +128,25 @@ Por apresentar uma subtopologia com menos nós e caminhos medidos, iniciamos pel
 
     Além disso, esse desbalanceamento é agravado pelo fato de que o caminho dominante apresenta também a menor latência em 97% dos casos (após o processo de interpolação). Assim, a tarefa de seleção de rotas torna-se degenerada: a ausência de diversidade nos exemplos limita a capacidade do modelo de distinguir situações em que uma rota alternativa poderia ser mais adequada. Em última instância, o desbalanceamento compromete tanto a variabilidade quanto o valor informativo do dataset, reduzindo sua utilidade para treinar e avaliar algoritmos que dependem de múltiplas escolhas possíveis de caminhos.
 
-## Premissas e aproximações
+Apesar de todas as limitações, é interessante apontar que a menor latência nos dados originais, em quase todas as vezes, não estava associada ao caminho mais curto (caminho 3).
 
-## Pré-processamento
+## Premissas, aproximações e pré-processamento
 
-Inicialmente, foi necessário reconstruir a topologia entre Rio de Janeiro e Espírito Santo utilizando as medições de traceroute. Como algumas amostras apresentavam saltos incompletos ou sem resposta (como no exemplo anterior), adotamos a estratégia de ignorar esses hops ausentes e conectar diretamente o salto anterior ao seguinte, preservando a continuidade lógica do caminho observado. A Figura 2 apresenta a topologia resultante desse processo de reconstrução.
+Devido as limitações expostas na seção anterior, as seguintes aproximações foram feitas a fim de executar testes preliminares de comparação em algoritmos de aprendizado supervisionado:
 
-![](../analysis\rj\rj-es\network_topology.png)
+- Definição do RTT no último salto do traceroute (destino) como a latência de todo o caminho. Essa aproximação não é completamente confiável, devido aos argumentos expostos na limitação 1.
+- Uso de interpolação com reamostragem para criar intervalos regulares de 10 minutos para todos os caminhos medidos. No entanto, é importante ressaltar que os dados criados não são complemente confiáveis, devido as limitações 2, 3 e 4.
+- Pulo de saltos de traceroute sem valores IP. Para diminuir a complexidade da reconstrução da topologia, conectamos diretamente o salto anterior ao seguinte, preservando a continuidade lógica do caminho observado.
 
-Uma limitação importante do dataset é que, para cada timestamp, ele disponibiliza apenas um caminho observado entre a origem e o destino. Além disso, como o RTT é medido a cada salto, não temos disponível o caminho de retorno desses pacotes. Por isso, não é possível decompor com precisão a latência por enlace individual para inferir as latências de caminhos alternativos no mesmo instante de tempo. 
-
-Diante disso, para o caminho medido no timestamp, adotamos como latência do caminho o RTT do último nó alcançado, que representa o atraso acumulado fim a fim. No entanto, é importante ressaltar que essa pode ser uma estimativa aproximada, já que não há garantia de que a rota de retorno seja idêntica à de ida. Para os caminhos alternativos, decidimos seguir pela estratégia de interpolação temporal para inferir a latência no timestamp ausente.
-
-Após extração e organização dos dados, construímos uma tabela contendo, para cada timestamp, a latência medida para cada caminho identificado. Os valores ausentes para caminhos que não foram observados naquele timestamp foram registrados como NaN. Posteriormente, utilizamos o método interpolate do pacote pandas no python. Fizemos um processo de interpolação linear em ambas as direções. O resultado da interpolação foi bastante coerente com os dados já obtidos. 
-
-No entanto, é preciso ressaltar que as coletas para os caminhos dessa subtopologia estão desbalanceadas: o caminho 1 possui 1170 medições; o caminho 2, 155 medições; e o caminho 3, apenas uma medição. A Figura 3 destaca os caminhos medidos. Os arquivos de antes e depois da interpolação estão anexo. Todo o material usado está disponível no repositório do Github: [auerbeatriz/desafio-rnp](https://github.com/auerbeatriz/desafio-rnp). 
-
-![](caminhos_rj_es.png)
-
-Posteriormente, criamos um arquivo com os rótulos usados para o treinamento dos modelos. Esse arquivo foi gerado escolhendo o pathId do caminho com a menor latência em um determinado timestamp. O caminho 1 teve a menor latência em 1277 dos casos, o caminho 2 em 2 casos, e o caminho 3 em 47 casos. O dataset dessa topologia está bastante desbalanceado, e apesar de possuir algumas leituras onde a menor latência não seja a do caminho 1, esse caso pode ter ocorrido por meio da introdução de outliers na interpolação (alguns valores introduzidos acima de 140, por exemplo). Apesar disso, é interessante avaliar que a menor latência, na maior parte das vezes, não estava associada ao caminho mais curto (caminho 3).
+Por último, utilizamos um método determinístico para criar os rótulos de rota para cada timestamp na nova base de dados após a interpolação. O rótulo consite em um número inteiro de 1 a 3, representando o pathId do caminho selecionado. Todo o material usado está disponível no repositório do Github: [auerbeatriz/desafio-rnp](https://github.com/auerbeatriz/desafio-rnp).
 
 # Experimentos e resultados
 
-O experimento inicial consistiu em excutar o mesmo notebook do Google Collab compartilhado pela equipe do Hecate (antiga parceria do grupo de pesquisa, responsável pelo estudo de otimizadores de rotas de rede). Esse collab avalia o desempenho de sete algoritmos de aprendizado de máquina para a escolha do caminho: LogisticRegression, KNeighbors, SVC, DecisionTree, ExtraTrees, RandomForest, GaussianNB.
+O experimento consistiu em excutar o mesmo notebook do Google Collab compartilhado pela equipe do Hecate (antiga parceria do grupo de pesquisa, responsável pelo estudo de otimizadores de rotas de rede). Esse collab avalia o desempenho de sete algoritmos de aprendizado de máquina supervisionado para a escolha do caminho: LogisticRegression, KNeighbors, SVC, DecisionTree, ExtraTrees, RandomForest, GaussianNB.
 
-Como entrada, é carregado o arquivo com as latências dos caminhos em cada timestamp. O timestamp não é utilizado como característica para o treinamento e teste dos modelos. O arquivo de rótulos também é usado para o treinamento e validação do modelo. Foi mantida uma divisão dos dados entre 80% treino e 20% teste. O resultado dos modelos foi o seguinte:
+Como entrada, é carregado o arquivo com as latências dos caminhos em cada timestamp. O timestamp não é utilizado como característica para o treinamento e teste dos modelos. O arquivo de rótulos também é usado para o treinamento e validação do modelo.
+
+Foi mantida uma divisão dos dados de 80% treino e 20% teste. O resultado dos modelos foi o seguinte:
 
 ```
 ###########     Full dataset      #################
@@ -165,10 +161,11 @@ Como entrada, é carregado o arquivo com as latências dos caminhos em cada time
 6          GaussianNB   0.983   0.017         0.832
 ```
 
-Quase todos os modelos previram corretamente, sendo os que tiveram maior acurácia RandomForest, ExtraTrees e LogisticRegression - muito similar aos resultados publicados no artigo conjunto. No entanto, é preciso considerar que a escolha nesse cenário é bastante determinístico.
-
+Quase todos os modelos previram corretamente, sendo os que tiveram maior acurácia RandomForest, ExtraTrees e LogisticRegression - muito similar aos resultados publicados no artigo conjunto. No entanto, é preciso considerar que a escolha nesse cenário pode ser considerado enviesado, devido a todas as limitações levantadas nas seções anteriores, e podem não representar capacidade de generalização real dos modelos para dados não vistos, e outros cenários de telemetria.
 
 # Conclusão
+
+Tendo exposto todas as limitações e aproximações necessárias para a execução desse experimento inicial, não é possível avaliar corretamente o desempenho dos modelos para a previsão da melhor rota para um novo fluxo de rede. Dessa forma, conclui-se que o dataset da RNP não possui as características necessárias para treinar algoritmos de IA para seleção de rotas em uma rede ciente de caminhos.
 
 # Perguntas
 
