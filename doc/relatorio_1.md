@@ -29,7 +29,7 @@ A tarefa de seleção de rota é formulada como um problema de comparação entr
 
 ## Descrição do Dataset
 
-Como primeiro passo, investigamos o uso do dataset disponibilizado pela Rede Nacional de Ensino e Pesquisa (RNP), coletado em 2024 em um subconjunto de nós da rede Ipê. O dataset possui diversas séries históricas de medições de traceroute, onde cada amostra registra os valores de RTT (Round Trip Time) em cada salto do caminho entre dois pontos da rede em um dado instante de tempo. Além disso, também fornece histogramas de RTT em um determinado timestamp aproximado. A seguir, um exemplo de leitura extraída do dataset, correspondente a um traceroute entre nós localizados no Rio de Janeiro e Espírito Santo, em um determinado timestamp, e o primeiro histograma para o mesmo par:
+Como primeiro passo, investigamos o uso do dataset disponibilizado pela Rede Nacional de Ensino e Pesquisa (RNP), coletado em 2024 em um subconjunto de nós da [rede Ipê](https://redeipe.rnp.br/home). O dataset possui diversas séries históricas de medições de traceroute, onde cada amostra registra os valores de RTT (Round Trip Time) em cada salto do caminho entre dois pontos da rede em um dado instante de tempo. Além disso, também fornece histogramas de RTT em um determinado timestamp aproximado. A seguir, um exemplo de leitura extraída do dataset, correspondente a um traceroute entre nós localizados no Rio de Janeiro e Espírito Santo, em um determinado timestamp, e o primeiro histograma para o mesmo par:
 
 ```
 # Leitura de traceroute RJ-ES
@@ -165,7 +165,11 @@ Quase todos os modelos previram corretamente, sendo os que tiveram maior acurác
 
 # Conclusão
 
-Tendo exposto todas as limitações e aproximações necessárias para a execução desse experimento inicial, não é possível avaliar corretamente o desempenho dos modelos para a previsão da melhor rota para um novo fluxo de rede. Dessa forma, conclui-se que o dataset da RNP não possui as características necessárias para treinar algoritmos de IA para seleção de rotas em uma rede ciente de caminhos.
+A partir das limitações identificadas na análise do dataset da RNP, incluindo ausência de mecanismos explícitos de seleção de rotas (rede não ciente de caminhos), desalinhamento temporal entre medições, irregularidade na frequência de coleta e forte desbalanceamento entre caminhos, torna-se evidente que os dados disponíveis não oferecem condições adequadas para avaliar o desempenho de algoritmos de aprendizado supervisionado na tarefa de seleção de rotas. Ainda que os modelos testados tenham apresentado altos índices de acurácia, tais resultados revelam-se enviesados e pouco representativos, refletindo mais a estrutura dos dados e suas simplificações do que qualquer capacidade de generalização real dos algoritmos. Assim, conclui-se que o dataset da RNP, em seu estado atual, não possui as características necessárias para treinar e validar abordagens de inteligência artificial voltadas à escolha de rotas em redes cientes de caminho.
+
+Diante desse cenário, optamos por avançar na construção de ambiente experimental emulado para criar um dataset de telemetria. A topologia emulada está apresentada na Figura 1. Essa abordagem permitirá coletar métricas de telemetria sob múltiplas condições de tráfego, com controle sobre a sincronização temporal e diversidade de rotas, preservando consistência entre os caminhos e seus respectivos rótulos. Paralelamente, existe a possibilidade de integrar aos experimentos dados provenientes de um testbed físico em um contexto de aplicações de ciência intensiva em dados (data-intensive science), o que ampliará a complexidade dos cenários avaliados.
+
+Com essas iniciativas, espera-se obter conjuntos de dados mais adequados ao contexto de redes cientes de caminho e capazes de permitir uma investigação mais assertiva sobre o uso de algoritmos de IA para seleção dinâmica de rotas.
 
 # Perguntas
 
